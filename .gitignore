@@ -1,0 +1,26 @@
+# Environment variables & local overrides (MANDATORY)
+.env
+.env.*
+!.env.example
+*.local
+
+# macOS system files
+.DS_Store
+._*
+
+# Temporary files & swap
+*.swp
+*.swo
+*~
+
+# Logs and runtime data
+*.log
+data
+
+# Testing & debugging artifacts
+tt.*
+.tests
+doc/tags
+debug
+.repro
+foo.*
