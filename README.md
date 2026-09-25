@@ -4,6 +4,16 @@ Configuración avanzada de Neovim construida sobre [LazyVim](https://github.com/
 
 ---
 
+## 📸 Vista Previa
+
+### 🖥️ Dashboard (Kinder Vim)
+![Kinder Vim Dashboard](assets/captura_2026-09-25_15-58-58.png)
+
+### 💻 Entorno de Desarrollo (Neo-tree & Edición)
+![Entorno de Desarrollo y Neo-tree](assets/captura_2026-09-25_16-02-17.png)
+
+---
+
 ## 🎯 Filosofía y Principios de Diseño
 
 1. **100% IA Local**: Todos los modelos de asistencia de código y chat interactivo se ejecutan en tu propia máquina (Llama.app / Apple Silicon MLX / llama.cpp). Cero telemetría hacia servicios externos en la nube.
@@ -17,6 +27,7 @@ Configuración avanzada de Neovim construida sobre [LazyVim](https://github.com/
 
 ```text
 nvim/
+├── assets/                         # Capturas de pantalla y recursos visuales
 ├── init.lua                        # Punto de entrada de Neovim
 ├── lazy-lock.json                  # Lockfile declarativo de plugins
 ├── lua/

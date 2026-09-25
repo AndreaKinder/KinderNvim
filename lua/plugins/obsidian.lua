@@ -3,9 +3,9 @@ local function get_notes_base()
   if env_path and env_path ~= "" then
     return vim.fn.expand(env_path)
   end
-  local default_path = "/Volumes/Files/notes"
+  local default_path = "/home/andrea/notes/"
   if vim.fn.isdirectory(default_path) == 0 then
-    default_path = vim.fn.expand("~/Work/notes")
+    default_path = vim.fn.expand("~/notes")
   end
   return default_path
 end
@@ -71,7 +71,9 @@ function project_utils.get_projects()
     if handle then
       while true do
         local name, type = vim.uv.fs_scandir_next(handle)
-        if not name then break end
+        if not name then
+          break
+        end
         if type == "directory" and not name:match("^%.") then
           local p_path = vim.fs.joinpath(projects_dir, name)
           seen[p_path] = true
@@ -104,7 +106,9 @@ function project_utils.get_projects()
     end
   end
 
-  table.sort(projects, function(a, b) return a.name:lower() < b.name:lower() end)
+  table.sort(projects, function(a, b)
+    return a.name:lower() < b.name:lower()
+  end)
   return projects
 end
 
@@ -140,11 +144,15 @@ function project_utils.select_project(prompt, allow_new, callback)
       end
     end,
   }, function(choice)
-    if not choice then return end
+    if not choice then
+      return
+    end
 
     if choice.is_new then
       vim.ui.input({ prompt = "Nombre del nuevo proyecto (kebab-case): " }, function(new_name)
-        if not new_name or vim.trim(new_name) == "" then return end
+        if not new_name or vim.trim(new_name) == "" then
+          return
+        end
         local clean_name = new_name:gsub("%s+", "-"):gsub("[^A-Za-z0-9-]", ""):lower()
         local client = require("obsidian").get_client()
         local projects_folder = os.getenv("OBSIDIAN_PROJECTS_FOLDER") or "projects"
@@ -163,7 +171,9 @@ end
 --- Asegura que el workspace activo de Obsidian corresponda al proyecto seleccionado
 function project_utils.ensure_workspace(project)
   local client = require("obsidian").get_client()
-  if not client then return end
+  if not client then
+    return
+  end
 
   if project.workspace then
     if client.current_workspace.name ~= project.workspace.name then
@@ -181,10 +191,14 @@ end
 --- Acción 1: Crear nota dentro de un proyecto
 function project_utils.create_note()
   project_utils.select_project("Crear nota en proyecto:", true, function(project)
-    if not project then return end
+    if not project then
+      return
+    end
 
     vim.ui.input({ prompt = "Título / Nombre de la nota (" .. project.name .. "): " }, function(title)
-      if not title or vim.trim(title) == "" then return end
+      if not title or vim.trim(title) == "" then
+        return
+      end
 
       project_utils.ensure_workspace(project)
 
@@ -194,7 +208,11 @@ function project_utils.create_note()
         dir = project.path,
       })
       client:open_note(note, { sync = true })
-      vim.notify("Nota creada en " .. project.name .. "/" .. note.path.name, vim.log.levels.INFO, { title = "Obsidian" })
+      vim.notify(
+        "Nota creada en " .. project.name .. "/" .. note.path.name,
+        vim.log.levels.INFO,
+        { title = "Obsidian" }
+      )
     end)
   end)
 end
@@ -202,7 +220,9 @@ end
 --- Acción 2: Buscar notas exclusivas de un proyecto (Quick Switch)
 function project_utils.find_notes()
   project_utils.select_project("Buscar notas del proyecto:", false, function(project)
-    if not project then return end
+    if not project then
+      return
+    end
     project_utils.ensure_workspace(project)
 
     local ok_snacks, snacks = pcall(require, "snacks")
@@ -246,7 +266,9 @@ end
 --- Acción 3: Búsqueda de texto (Grep) exclusiva en un proyecto
 function project_utils.grep_notes()
   project_utils.select_project("Buscar texto en proyecto:", false, function(project)
-    if not project then return end
+    if not project then
+      return
+    end
     project_utils.ensure_workspace(project)
 
     local ok_snacks, snacks = pcall(require, "snacks")
@@ -293,7 +315,7 @@ return {
     optional = true,
     opts = {
       spec = {
-        { "<leader>o",  group = "obsidian",  icon = "󱞁 " },
+        { "<leader>o", group = "obsidian", icon = "󱞁 " },
         { "<leader>op", group = "proyectos", icon = " " },
       },
     },
@@ -337,22 +359,22 @@ return {
       "nvim-lua/plenary.nvim",
     },
     keys = {
-      { "<leader>ow",  "<cmd>ObsidianWorkspace<cr>",       desc = "Cambiar de bóveda (Workspace)" },
-      { "<leader>of",  "<cmd>ObsidianQuickSwitch<cr>",    desc = "Buscar nota (por alias/título)" },
-      { "<leader>os",  "<cmd>ObsidianSearch<cr>",          desc = "Buscar texto en notas (Grep)" },
-      { "<leader>on",  "<cmd>ObsidianNew<cr>",             desc = "Crear nueva nota (Zettelkasten)" },
-      { "<leader>od",  "<cmd>ObsidianToday<cr>",           desc = "Nota diaria (Hoy)" },
-      { "<leader>oy",  "<cmd>ObsidianYesterday<cr>",       desc = "Nota diaria (Ayer)" },
-      { "<leader>om",  "<cmd>ObsidianTomorrow<cr>",        desc = "Nota diaria (Mañana)" },
-      { "<leader>oc",  "<cmd>Calendar<cr>",                 desc = "Calendario de notas diarias" },
-      { "<leader>ot",  "<cmd>ObsidianTags<cr>",            desc = "Buscar por etiquetas (#tags)" },
-      { "<leader>ob",  "<cmd>ObsidianBacklinks<cr>",       desc = "Ver enlaces entrantes (Backlinks)" },
-      { "<leader>ox",  "<cmd>ObsidianToggleCheckbox<cr>", desc = "Alternar casilla [-] / [x]" },
-      { "<leader>oo",  "<cmd>ObsidianOpen<cr>",            desc = "Abrir en Obsidian Desktop" },
-      { "<leader>oT",  "<cmd>ObsidianTemplate<cr>",        desc = "Insertar plantilla" },
-      { "<leader>oi",  "<cmd>ObsidianPasteImg<cr>",       desc = "Pegar imagen desde portapapeles" },
-      { "<leader>ol",  "<cmd>ObsidianLink<cr>",            desc = "Vincular texto a nota",            mode = "v" },
-      { "<leader>onl", "<cmd>ObsidianLinkNew<cr>",        desc = "Crear y vincular nueva nota",      mode = "v" },
+      { "<leader>ow", "<cmd>ObsidianWorkspace<cr>", desc = "Cambiar de bóveda (Workspace)" },
+      { "<leader>of", "<cmd>ObsidianQuickSwitch<cr>", desc = "Buscar nota (por alias/título)" },
+      { "<leader>os", "<cmd>ObsidianSearch<cr>", desc = "Buscar texto en notas (Grep)" },
+      { "<leader>on", "<cmd>ObsidianNew<cr>", desc = "Crear nueva nota (Zettelkasten)" },
+      { "<leader>od", "<cmd>ObsidianToday<cr>", desc = "Nota diaria (Hoy)" },
+      { "<leader>oy", "<cmd>ObsidianYesterday<cr>", desc = "Nota diaria (Ayer)" },
+      { "<leader>om", "<cmd>ObsidianTomorrow<cr>", desc = "Nota diaria (Mañana)" },
+      { "<leader>oc", "<cmd>Calendar<cr>", desc = "Calendario de notas diarias" },
+      { "<leader>ot", "<cmd>ObsidianTags<cr>", desc = "Buscar por etiquetas (#tags)" },
+      { "<leader>ob", "<cmd>ObsidianBacklinks<cr>", desc = "Ver enlaces entrantes (Backlinks)" },
+      { "<leader>ox", "<cmd>ObsidianToggleCheckbox<cr>", desc = "Alternar casilla [-] / [x]" },
+      { "<leader>oo", "<cmd>ObsidianOpen<cr>", desc = "Abrir en Obsidian Desktop" },
+      { "<leader>oT", "<cmd>ObsidianTemplate<cr>", desc = "Insertar plantilla" },
+      { "<leader>oi", "<cmd>ObsidianPasteImg<cr>", desc = "Pegar imagen desde portapapeles" },
+      { "<leader>ol", "<cmd>ObsidianLink<cr>", desc = "Vincular texto a nota", mode = "v" },
+      { "<leader>onl", "<cmd>ObsidianLinkNew<cr>", desc = "Crear y vincular nueva nota", mode = "v" },
       -- Submenú de Proyectos (<leader>op)
       {
         "<leader>opn",
@@ -386,84 +408,84 @@ return {
         notes_subdir = os.getenv("OBSIDIAN_NOTES_SUBDIR") or "zettelkasten",
         new_notes_location = "notes_subdir",
 
-      -- Notas diarias (Journal / Bitácora)
-      daily_notes = {
-        folder = os.getenv("OBSIDIAN_DAILY_FOLDER") or "journal",
-        date_format = "%Y-%m-%d",
-        alias_format = "%Y-%m-%d",
-        template = os.getenv("OBSIDIAN_DAILY_TEMPLATE") or "plantilla-diaria.md",
-        default_tags = { "daily-notes" },
-      },
+        -- Notas diarias (Journal / Bitácora)
+        daily_notes = {
+          folder = os.getenv("OBSIDIAN_DAILY_FOLDER") or "journal",
+          date_format = "%Y-%m-%d",
+          alias_format = "%Y-%m-%d",
+          template = os.getenv("OBSIDIAN_DAILY_TEMPLATE") or "plantilla-diaria.md",
+          default_tags = { "daily-notes" },
+        },
 
-      -- Plantillas oficiales de la bóveda
-      templates = {
-        folder = os.getenv("OBSIDIAN_TEMPLATES_FOLDER") or "templates",
-        date_format = "%Y-%m-%d",
-        time_format = "%H:%M",
-        substitutions = {},
-      },
+        -- Plantillas oficiales de la bóveda
+        templates = {
+          folder = os.getenv("OBSIDIAN_TEMPLATES_FOLDER") or "templates",
+          date_format = "%Y-%m-%d",
+          time_format = "%H:%M",
+          substitutions = {},
+        },
 
-      -- Gestión de imágenes y recursos adjuntos
-      attachments = {
-        folder = os.getenv("OBSIDIAN_ATTACHMENTS_FOLDER") or "assets",
-        ---@param client obsidian.Client
-        ---@param path obsidian.Path the absolute path to the image file
-        ---@return string
-        img_text_func = function(client, path)
-          path = client:vault_relative_path(path) or path
-          return string.format("![%s](%s)", path.name, path)
-        end,
-      },
+        -- Gestión de imágenes y recursos adjuntos
+        attachments = {
+          folder = os.getenv("OBSIDIAN_ATTACHMENTS_FOLDER") or "assets",
+          ---@param client obsidian.Client
+          ---@param path obsidian.Path the absolute path to the image file
+          ---@return string
+          img_text_func = function(client, path)
+            path = client:vault_relative_path(path) or path
+            return string.format("![%s](%s)", path.name, path)
+          end,
+        },
 
-      -- Generador de IDs conforme a AGENTS.md (<TIMESTAMP>-<ACRONIMO/TITULO>)
-      note_id_func = function(title)
-        local suffix = ""
-        if title ~= nil and title ~= "" then
-          -- Transformar título a kebab-case limpio
-          suffix = title:gsub(" ", "-"):gsub("[^A-Za-z0-9-]", ""):lower()
-        else
-          -- 4 letras mayúsculas aleatorias (ej. 1787692393-AENB)
-          for _ = 1, 4 do
-            suffix = suffix .. string.char(math.random(65, 90))
-          end
-        end
-        return tostring(os.time()) .. "-" .. suffix
-      end,
-
-      ui = {
-        enable = false, -- Desactivado para que render-markdown.nvim maneje todo el renderizado
-      },
-
-      -- Frontmatter estructurado según AGENTS.md
-      frontmatter = {
-        enabled = true,
-        func = function(note)
-          -- Añadir el título de la nota como alias si está presente
-          if note.title then
-            note:add_alias(note.title)
-          end
-
-          local out = {
-            id = note.id,
-            description = (note.metadata and note.metadata.description) or "",
-            aliases = note.aliases or {},
-            tags = note.tags or {},
-          }
-
-          -- Preservar metadatos adicionales si existen (ej. events, lastSync, etc.)
-          if note.metadata ~= nil and not vim.tbl_isempty(note.metadata) then
-            for k, v in pairs(note.metadata) do
-              if k ~= "title" and out[k] == nil then
-                out[k] = v
-              end
+        -- Generador de IDs conforme a AGENTS.md (<TIMESTAMP>-<ACRONIMO/TITULO>)
+        note_id_func = function(title)
+          local suffix = ""
+          if title ~= nil and title ~= "" then
+            -- Transformar título a kebab-case limpio
+            suffix = title:gsub(" ", "-"):gsub("[^A-Za-z0-9-]", ""):lower()
+          else
+            -- 4 letras mayúsculas aleatorias (ej. 1787692393-AENB)
+            for _ = 1, 4 do
+              suffix = suffix .. string.char(math.random(65, 90))
             end
           end
-
-          return out
+          return tostring(os.time()) .. "-" .. suffix
         end,
-        sort = { "id", "description", "events", "aliases", "tags" },
-      },
-    }
-  end,
+
+        ui = {
+          enable = false, -- Desactivado para que render-markdown.nvim maneje todo el renderizado
+        },
+
+        -- Frontmatter estructurado según AGENTS.md
+        frontmatter = {
+          enabled = true,
+          func = function(note)
+            -- Añadir el título de la nota como alias si está presente
+            if note.title then
+              note:add_alias(note.title)
+            end
+
+            local out = {
+              id = note.id,
+              description = (note.metadata and note.metadata.description) or "",
+              aliases = note.aliases or {},
+              tags = note.tags or {},
+            }
+
+            -- Preservar metadatos adicionales si existen (ej. events, lastSync, etc.)
+            if note.metadata ~= nil and not vim.tbl_isempty(note.metadata) then
+              for k, v in pairs(note.metadata) do
+                if k ~= "title" and out[k] == nil then
+                  out[k] = v
+                end
+              end
+            end
+
+            return out
+          end,
+          sort = { "id", "description", "events", "aliases", "tags" },
+        },
+      }
+    end,
   },
 }
