@@ -46,25 +46,25 @@ end
 local project_utils = {}
 
 --- Obtiene la lista de proyectos (carpetas en projects/ y workspaces adicionales)
----@return table<{ name: string, path: string, type: "folder"|"workspace", workspace?: any }>
+---@return table<{ name: string, path: string, type: "folder"|"workspace", ws_name?: string, workspace?: any }>
 function project_utils.get_projects()
-  local ok, obsidian = pcall(require, "obsidian")
-  if not ok then
-    return {}
-  end
-
-  local client = obsidian.get_client()
-  if not client then
-    return {}
-  end
-
+  local notes_base = get_notes_base()
   local projects = {}
   local seen = {}
 
-  -- 1. Carpetas de proyectos dentro de la bóveda
-  local vault_dir = tostring(client.dir or get_notes_base())
+  -- Mapa de workspaces existentes por ruta normalizada y nombre
+  local ws_by_path = {}
+  local ws_by_name = {}
+  if Obsidian and Obsidian.workspaces then
+    for _, ws in ipairs(Obsidian.workspaces) do
+      ws_by_path[vim.fs.normalize(tostring(ws.path))] = ws
+      ws_by_name[ws.name] = ws
+    end
+  end
+
+  -- 1. Carpetas de proyectos dentro de la bóveda (projects/*)
   local projects_folder = os.getenv("OBSIDIAN_PROJECTS_FOLDER") or "projects"
-  local projects_dir = vim.fs.joinpath(vault_dir, projects_folder)
+  local projects_dir = vim.fs.joinpath(notes_base, projects_folder)
 
   if vim.fn.isdirectory(projects_dir) == 1 then
     local handle = vim.uv.fs_scandir(projects_dir)
@@ -75,12 +75,16 @@ function project_utils.get_projects()
           break
         end
         if type == "directory" and not name:match("^%.") then
-          local p_path = vim.fs.joinpath(projects_dir, name)
+          local p_path = vim.fs.normalize(vim.fs.joinpath(projects_dir, name))
           seen[p_path] = true
+          local expected_ws_name = "proj-" .. name
+          local ws = ws_by_name[expected_ws_name] or ws_by_path[p_path]
           table.insert(projects, {
             name = name,
             path = p_path,
             type = "folder",
+            ws_name = expected_ws_name,
+            workspace = ws,
           })
         end
       end
@@ -88,17 +92,18 @@ function project_utils.get_projects()
   end
 
   -- 2. Workspaces adicionales registrados en Obsidian
-  if client.opts and client.opts.workspaces then
+  if Obsidian and Obsidian.workspaces then
     local default_ws = os.getenv("OBSIDIAN_DEFAULT_WORKSPACE") or "notes"
-    for _, ws in ipairs(client.opts.workspaces) do
+    for _, ws in ipairs(Obsidian.workspaces) do
       if ws.name ~= default_ws and ws.name ~= ".obsidian.wiki" then
-        local ws_path = tostring(ws.path)
+        local ws_path = vim.fs.normalize(tostring(ws.path))
         if not seen[ws_path] then
           seen[ws_path] = true
           table.insert(projects, {
             name = ws.name,
             path = ws_path,
             type = "workspace",
+            ws_name = ws.name,
             workspace = ws,
           })
         end
@@ -115,7 +120,7 @@ end
 --- Selector interactivo de proyecto
 ---@param prompt string
 ---@param allow_new boolean
----@param callback fun(project: { name: string, path: string, type: string, workspace?: any }|nil)
+---@param callback fun(project: { name: string, path: string, type: string, ws_name?: string, workspace?: any }|nil)
 function project_utils.select_project(prompt, allow_new, callback)
   local projects = project_utils.get_projects()
   local items = {}
@@ -154,13 +159,30 @@ function project_utils.select_project(prompt, allow_new, callback)
           return
         end
         local clean_name = new_name:gsub("%s+", "-"):gsub("[^A-Za-z0-9-]", ""):lower()
-        local client = require("obsidian").get_client()
+        local notes_base = get_notes_base()
         local projects_folder = os.getenv("OBSIDIAN_PROJECTS_FOLDER") or "projects"
-        local new_path = vim.fs.joinpath(vault_dir, projects_folder, clean_name)
+        local new_path = vim.fs.joinpath(notes_base, projects_folder, clean_name)
         if vim.fn.isdirectory(new_path) == 0 then
           vim.fn.mkdir(new_path, "p")
         end
-        callback({ name = clean_name, path = new_path, type = "folder" })
+
+        local ws_name = "proj-" .. clean_name
+        local Workspace = require("obsidian.workspace")
+        local new_ws = Workspace.new({
+          name = ws_name,
+          path = new_path,
+        })
+        if new_ws and Obsidian and Obsidian.workspaces then
+          table.insert(Obsidian.workspaces, new_ws)
+        end
+
+        callback({
+          name = clean_name,
+          path = new_path,
+          type = "folder",
+          ws_name = ws_name,
+          workspace = new_ws,
+        })
       end)
     else
       callback(choice)
@@ -170,21 +192,56 @@ end
 
 --- Asegura que el workspace activo de Obsidian corresponda al proyecto seleccionado
 function project_utils.ensure_workspace(project)
-  local client = require("obsidian").get_client()
-  if not client then
+  if not project then
     return
   end
 
+  local Workspace = require("obsidian.workspace")
+
+  -- 1. Si ya tenemos la referencia al objeto workspace
   if project.workspace then
-    if client.current_workspace.name ~= project.workspace.name then
-      client:switch_workspace(project.workspace.name, { lock = true })
+    if not (Obsidian and Obsidian.workspace and Obsidian.workspace.name == project.workspace.name) then
+      Workspace.set(project.workspace)
     end
-  else
-    local Workspace = require("obsidian.workspace")
-    local ws = Workspace.get_workspace_for_dir(project.path, client.opts.workspaces)
-    if ws and ws.name ~= client.current_workspace.name then
-      client:switch_workspace(ws.name, { lock = true })
+    return
+  end
+
+  -- 2. Si tenemos el nombre del workspace
+  if project.ws_name then
+    if Obsidian and Obsidian.workspace and Obsidian.workspace.name == project.ws_name then
+      return
     end
+    for _, ws in ipairs((Obsidian and Obsidian.workspaces) or {}) do
+      if ws.name == project.ws_name then
+        Workspace.set(ws)
+        return
+      end
+    end
+  end
+
+  -- 3. Buscar por ruta en los workspaces existentes
+  local target_path = vim.fs.normalize(tostring(project.path))
+  for _, ws in ipairs((Obsidian and Obsidian.workspaces) or {}) do
+    if vim.fs.normalize(tostring(ws.path)) == target_path then
+      if not (Obsidian and Obsidian.workspace and Obsidian.workspace.name == ws.name) then
+        Workspace.set(ws)
+      end
+      return
+    end
+  end
+
+  -- 4. Si no existía, crear dinámicamente el workspace y activarlo
+  local ws_name = project.ws_name or ("proj-" .. project.name)
+  local new_ws = Workspace.new({
+    name = ws_name,
+    path = project.path,
+  })
+  if new_ws then
+    if Obsidian and Obsidian.workspaces then
+      table.insert(Obsidian.workspaces, new_ws)
+    end
+    Workspace.set(new_ws)
+    project.workspace = new_ws
   end
 end
 
@@ -202,12 +259,13 @@ function project_utils.create_note()
 
       project_utils.ensure_workspace(project)
 
-      local client = require("obsidian").get_client()
-      local note = client:create_note({
-        title = title,
+      local Note = require("obsidian.note")
+      local note = Note.create({
+        id = title,
         dir = project.path,
       })
-      client:open_note(note, { sync = true })
+      note:write()
+      note:open({ sync = true })
       vim.notify(
         "Nota creada en " .. project.name .. "/" .. note.path.name,
         vim.log.levels.INFO,
@@ -252,10 +310,8 @@ function project_utils.find_notes()
       return
     end
 
-    local client = require("obsidian").get_client()
-    local picker = client:picker()
-    if picker then
-      picker:find_files({
+    if Obsidian and Obsidian.picker then
+      Obsidian.picker.find_files({
         dir = project.path,
         prompt_title = "Notas: " .. project.name,
       })
@@ -298,10 +354,8 @@ function project_utils.grep_notes()
       return
     end
 
-    local client = require("obsidian").get_client()
-    local picker = client:picker()
-    if picker then
-      picker:grep({
+    if Obsidian and Obsidian.picker then
+      Obsidian.picker.grep({
         dir = project.path,
         prompt_title = "Grep en " .. project.name,
       })
@@ -326,30 +380,7 @@ return {
     lazy = true,
     ft = "markdown",
     cmd = {
-      "ObsidianBacklinks",
-      "ObsidianCheck",
-      "ObsidianDebug",
-      "ObsidianExtractNote",
-      "ObsidianFollowLink",
-      "ObsidianLink",
-      "ObsidianLinkNew",
-      "ObsidianLinks",
-      "ObsidianNew",
-      "ObsidianNewFromTemplate",
-      "ObsidianOpen",
-      "ObsidianPasteImg",
-      "ObsidianQuickSwitch",
-      "ObsidianRename",
-      "ObsidianSearch",
-      "ObsidianTags",
-      "ObsidianTemplate",
-      "ObsidianToday",
-      "ObsidianTomorrow",
-      "ObsidianToggleCheckbox",
-      "ObsidianWorkspace",
-      "ObsidianYesterday",
-      "ObsidianDailies",
-      "ObsidianTOC",
+      "Obsidian",
     },
     event = {
       "BufReadPre *.md",
@@ -359,22 +390,22 @@ return {
       "nvim-lua/plenary.nvim",
     },
     keys = {
-      { "<leader>ow", "<cmd>ObsidianWorkspace<cr>", desc = "Cambiar de bóveda (Workspace)" },
-      { "<leader>of", "<cmd>ObsidianQuickSwitch<cr>", desc = "Buscar nota (por alias/título)" },
-      { "<leader>os", "<cmd>ObsidianSearch<cr>", desc = "Buscar texto en notas (Grep)" },
-      { "<leader>on", "<cmd>ObsidianNew<cr>", desc = "Crear nueva nota (Zettelkasten)" },
-      { "<leader>od", "<cmd>ObsidianToday<cr>", desc = "Nota diaria (Hoy)" },
-      { "<leader>oy", "<cmd>ObsidianYesterday<cr>", desc = "Nota diaria (Ayer)" },
-      { "<leader>om", "<cmd>ObsidianTomorrow<cr>", desc = "Nota diaria (Mañana)" },
+      { "<leader>ow", "<cmd>Obsidian workspace<cr>", desc = "Cambiar de bóveda (Workspace)" },
+      { "<leader>of", "<cmd>Obsidian quick_switch<cr>", desc = "Buscar nota (por alias/título)" },
+      { "<leader>os", "<cmd>Obsidian search<cr>", desc = "Buscar texto en notas (Grep)" },
+      { "<leader>on", "<cmd>Obsidian new<cr>", desc = "Crear nueva nota (Zettelkasten)" },
+      { "<leader>od", "<cmd>Obsidian today<cr>", desc = "Nota diaria (Hoy)" },
+      { "<leader>oy", "<cmd>Obsidian yesterday<cr>", desc = "Nota diaria (Ayer)" },
+      { "<leader>om", "<cmd>Obsidian tomorrow<cr>", desc = "Nota diaria (Mañana)" },
       { "<leader>oc", "<cmd>Calendar<cr>", desc = "Calendario de notas diarias" },
-      { "<leader>ot", "<cmd>ObsidianTags<cr>", desc = "Buscar por etiquetas (#tags)" },
-      { "<leader>ob", "<cmd>ObsidianBacklinks<cr>", desc = "Ver enlaces entrantes (Backlinks)" },
-      { "<leader>ox", "<cmd>ObsidianToggleCheckbox<cr>", desc = "Alternar casilla [-] / [x]" },
-      { "<leader>oo", "<cmd>ObsidianOpen<cr>", desc = "Abrir en Obsidian Desktop" },
-      { "<leader>oT", "<cmd>ObsidianTemplate<cr>", desc = "Insertar plantilla" },
-      { "<leader>oi", "<cmd>ObsidianPasteImg<cr>", desc = "Pegar imagen desde portapapeles" },
-      { "<leader>ol", "<cmd>ObsidianLink<cr>", desc = "Vincular texto a nota", mode = "v" },
-      { "<leader>onl", "<cmd>ObsidianLinkNew<cr>", desc = "Crear y vincular nueva nota", mode = "v" },
+      { "<leader>ot", "<cmd>Obsidian tags<cr>", desc = "Buscar por etiquetas (#tags)" },
+      { "<leader>ob", "<cmd>Obsidian backlinks<cr>", desc = "Ver enlaces entrantes (Backlinks)" },
+      { "<leader>ox", "<cmd>Obsidian toggle_checkbox<cr>", desc = "Alternar casilla [-] / [x]" },
+      { "<leader>oo", "<cmd>Obsidian open<cr>", desc = "Abrir en Obsidian Desktop" },
+      { "<leader>oT", "<cmd>Obsidian template<cr>", desc = "Insertar plantilla" },
+      { "<leader>oi", "<cmd>Obsidian paste_img<cr>", desc = "Pegar imagen desde portapapeles" },
+      { "<leader>ol", "<cmd>Obsidian link<cr>", desc = "Vincular texto a nota", mode = "v" },
+      { "<leader>onl", "<cmd>Obsidian link_new<cr>", desc = "Crear y vincular nueva nota", mode = "v" },
       -- Submenú de Proyectos (<leader>op)
       {
         "<leader>opn",

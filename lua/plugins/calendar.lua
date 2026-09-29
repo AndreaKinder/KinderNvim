@@ -11,9 +11,12 @@ return {
         if env_path and env_path ~= "" then
           return vim.fn.expand(env_path)
         end
-        local default_path = "/Volumes/Files/notes"
+        local default_path = vim.fn.expand("~/notes")
         if vim.fn.isdirectory(default_path) == 0 then
-          default_path = vim.fn.expand("~/Work/notes")
+          default_path = "/Volumes/Files/notes"
+          if vim.fn.isdirectory(default_path) == 0 then
+            default_path = vim.fn.expand("~/Work/notes")
+          end
         end
         return default_path
       end
