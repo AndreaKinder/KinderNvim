@@ -1,13 +1,9 @@
 local function get_notes_base()
-  local env_path = os.getenv("OBSIDIAN_VAULT_PATH") or os.getenv("NOTES_PATH")
+  local env_path = os.getenv("NOTAS_VAULT") or os.getenv("OBSIDIAN_VAULT_PATH") or os.getenv("NOTES_PATH")
   if env_path and env_path ~= "" then
     return vim.fn.expand(env_path)
   end
-  local default_path = "/home/andrea/notes/"
-  if vim.fn.isdirectory(default_path) == 0 then
-    default_path = vim.fn.expand("~/notes")
-  end
-  return default_path
+  return vim.fn.expand("~/Notas")
 end
 
 local function get_workspaces()
@@ -16,7 +12,7 @@ local function get_workspaces()
 
   local workspaces = {
     {
-      name = os.getenv("OBSIDIAN_DEFAULT_WORKSPACE") or "notes",
+      name = os.getenv("OBSIDIAN_DEFAULT_WORKSPACE") or "Notas",
       path = notes_base,
       overrides = {
         notes_subdir = notes_subdir,
@@ -93,7 +89,7 @@ function project_utils.get_projects()
 
   -- 2. Workspaces adicionales registrados en Obsidian
   if Obsidian and Obsidian.workspaces then
-    local default_ws = os.getenv("OBSIDIAN_DEFAULT_WORKSPACE") or "notes"
+    local default_ws = os.getenv("OBSIDIAN_DEFAULT_WORKSPACE") or "Notas"
     for _, ws in ipairs(Obsidian.workspaces) do
       if ws.name ~= default_ws and ws.name ~= ".obsidian.wiki" then
         local ws_path = vim.fs.normalize(tostring(ws.path))

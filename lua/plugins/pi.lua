@@ -1,6 +1,6 @@
 local command = os.getenv("PI_COMMAND") or "pi"
-local provider = os.getenv("PI_PROVIDER") or "llama-app"
-local model = os.getenv("PI_MODEL") or "ggml-org/gemma-4-E2B-it-GGUF:Q8_0"
+local provider = os.getenv("PI_PROVIDER") or "ollama"
+local model = os.getenv("PI_MODEL") or "qwen3:4b"
 
 return {
   {

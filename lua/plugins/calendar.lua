@@ -7,18 +7,11 @@ return {
     },
     init = function()
       local function get_notes_dir()
-        local env_path = os.getenv("OBSIDIAN_VAULT_PATH") or os.getenv("NOTES_PATH")
+        local env_path = os.getenv("NOTAS_VAULT") or os.getenv("OBSIDIAN_VAULT_PATH") or os.getenv("NOTES_PATH")
         if env_path and env_path ~= "" then
           return vim.fn.expand(env_path)
         end
-        local default_path = vim.fn.expand("~/notes")
-        if vim.fn.isdirectory(default_path) == 0 then
-          default_path = "/Volumes/Files/notes"
-          if vim.fn.isdirectory(default_path) == 0 then
-            default_path = vim.fn.expand("~/Work/notes")
-          end
-        end
-        return default_path
+        return vim.fn.expand("~/Notas")
       end
 
       local function open_daily_note(year, month, day)

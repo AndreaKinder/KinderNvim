@@ -15,6 +15,8 @@
 
 # Logs and runtime data
 *.log
+.nextcloudsync.log
+.sync_*.db*
 data
 
 # Testing & debugging artifacts

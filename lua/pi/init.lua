@@ -5,19 +5,18 @@ local default_config = {
   command = os.getenv("PI_COMMAND") or "pi",
   command_args = {
     "--provider",
-    os.getenv("PI_PROVIDER") or "mlx-local",
+    os.getenv("PI_PROVIDER") or "ollama",
     "--model",
-    os.getenv("PI_MODEL") or "mlx-community/Qwen2.5-Coder-7B-Instruct-4bit",
+    os.getenv("PI_MODEL") or "qwen3:4b",
     "--thinking",
     "off",
   },
-  server_url = os.getenv("MLX_SERVER_URL") or os.getenv("PI_SERVER_URL") or "http://127.0.0.1:8080/v1/models",
   auto_context = false, -- Si es true, siempre precarga el archivo actual al abrir
   float_opts = {
     width = 0.85,
     height = 0.85,
     border = "rounded",
-    title = " 🥧 Pi Code (MLX Local) ",
+    title = " 🥧 Pi Code (IA Local) ",
   },
 }
 
@@ -29,25 +28,6 @@ local state = {
   split_win = nil,
   float_win = nil,
 }
-
-local function check_mlx_server()
-  if vim.fn.executable("curl") ~= 1 then
-    return
-  end
-  vim.fn.jobstart({ "curl", "-fsS", "-m", "1", config.server_url or default_config.server_url }, {
-    on_exit = function(_, exit_code)
-      if exit_code ~= 0 then
-        vim.schedule(function()
-          vim.notify(
-            "Aviso: El servidor MLX local no responde en " .. (config.server_url or default_config.server_url) .. ".\nInícialo con: mlx-server",
-            vim.log.levels.WARN,
-            { title = "Pi Code" }
-          )
-        end)
-      end
-    end,
-  })
-end
 
 local function build_command()
   local cmd = config.command or "pi"
@@ -99,8 +79,6 @@ local function launch_terminal_if_needed(current_file_ctx)
       { title = "Pi Code" }
     )
   end
-
-  check_mlx_server()
 
   state.chan_id = vim.fn.termopen(cmd_list, {
     env = { ["EDITOR"] = "nvim" },
@@ -224,7 +202,7 @@ function M.open_float(preload_file)
     col = col,
     style = "minimal",
     border = f_opts.border or "rounded",
-    title = f_opts.title or " 🥧 Pi Code (MLX Local) ",
+    title = f_opts.title or " 🥧 Pi Code (IA Local) ",
     title_pos = "center",
   })
   state.float_win = win

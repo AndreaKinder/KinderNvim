@@ -16,7 +16,7 @@ Configuración avanzada de Neovim construida sobre [LazyVim](https://github.com/
 
 ## 🎯 Filosofía y Principios de Diseño
 
-1. **100% IA Local**: Todos los modelos de asistencia de código y chat interactivo se ejecutan en tu propia máquina (Llama.app / Apple Silicon MLX / llama.cpp). Cero telemetría hacia servicios externos en la nube.
+1. **100% IA Local**: Todos los modelos de asistencia de código y chat interactivo se ejecutan en tu propia máquina (Ollama / Llama.app / llama.cpp). Cero telemetría hacia servicios externos en la nube.
 2. **Inversión de Control (Factor III)**: Ni endpoints, ni puertos, ni rutas personales de carpetas están hardcodeados en el código Lua. La infraestructura se inyecta desde variables de entorno con fallbacks seguros.
 3. **Rendimiento Nativo**: Autocompletado impulsado por `blink.cmp` (escrito en Rust), carga perezosa (*lazy loading*) para más de 20 temas de color y animaciones no esenciales desactivadas para respuesta instantánea.
 4. **Sistema de Conocimiento Integrado**: Flujo de notas Zettelkasten y gestión de proyectos sincronizados entre `obsidian.nvim` y `calendar.vim`.
@@ -42,6 +42,7 @@ nvim/
 │   │   └── init.lua                # Módulo local de integración con Pi Code CLI
 │   └── plugins/                    # Plugins modulares (cargados por lazy.nvim)
 │       ├── ai.lua                  # Minuet AI (autocompletado local compatible con OpenAI)
+│       ├── avante.lua              # Avante.nvim (asistente de IA integrado en el editor)
 │       ├── pi.lua                  # Pi Assistant (terminal flotante y split interactivo)
 │       ├── completion.lua          # Blink.cmp + integraciones LSP (PHP, TS/JS, Emmet)
 │       ├── obsidian.lua            # Bóveda de Obsidian, workspaces y gestión de proyectos
@@ -58,32 +59,33 @@ nvim/
 
 Puedes exportar estas variables en tu shell (`~/.zshrc` o `~/.zshenv`) para personalizar endpoints y ubicaciones sin tocar código:
 
-### 1. IA Local (Autocompletado & Chat)
+### 1. IA (Autocompletado & Chat)
 
-| Variable | Descripción | Valor por defecto |
-| :--- | :--- | :--- |
-| `LLAMA_APP_ENDPOINT` | Endpoint HTTP para autocompletado en línea | `http://127.0.0.1:9931/v1/chat/completions` |
-| `LLAMA_APP_MODEL` | Modelo local para autocompletado | `ggml-org/gemma-4-E2B-it-GGUF:Q8_0` |
-| `LLAMA_APP_API_KEY` | Clave API del servidor local | `"none"` |
-| `PI_COMMAND` | Binario del CLI interactivo | `"pi"` |
-| `PI_PROVIDER` | Proveedor del CLI interactivo | `"llama-app"` |
-| `PI_MODEL` | Modelo a utilizar en el CLI interactivo | `ggml-org/gemma-4-E2B-it-GGUF:Q8_0` |
-| `MLX_SERVER_URL` | URL de verificación del servidor local Apple MLX | `http://127.0.0.1:8080/v1/models` |
+| Variable             | Descripción                                | Valor por defecto                            |
+|----------------------|--------------------------------------------|----------------------------------------------|
+| `LLAMA_APP_ENDPOINT` | Endpoint HTTP para autocompletado en línea | `http://127.0.0.1:9931/v1/chat/completions`  |
+| `LLAMA_APP_MODEL`    | Modelo local para autocompletado           | `ggml-org/gemma-4-E2B-it-GGUF:Q8_0`          |
+| `LLAMA_APP_API_KEY`  | Clave API del servidor local               | `"none"`                                     |
+| `PI_COMMAND`         | Binario del CLI interactivo                | `"pi"`                                       |
+| `PI_PROVIDER`        | Proveedor del CLI interactivo              | `"ollama"`                                   |
+| `PI_MODEL`           | Modelo a utilizar en el CLI interactivo    | `"qwen3:4b"`                                 |
+| `MISTRAL_API_KEY`    | Clave API de Mistral (para `avante.nvim`)  | *(Opcional)*                                 |
 
 ### 2. Obsidian & Calendario de Notas
 
-| Variable | Descripción | Valor por defecto |
-| :--- | :--- | :--- |
-| `OBSIDIAN_VAULT_PATH` | Ruta absoluta de tu bóveda de notas | `/Volumes/Files/notes` (o `~/Work/notes`) |
-| `OBSIDIAN_DEFAULT_WORKSPACE` | Nombre del workspace principal | `"notes"` |
-| `OBSIDIAN_NOTES_SUBDIR` | Subcarpeta de notas Zettelkasten | `"zettelkasten"` |
-| `OBSIDIAN_PROJECTS_FOLDER` | Subcarpeta de proyectos | `"projects"` |
-| `OBSIDIAN_DAILY_FOLDER` | Subcarpeta para el diario / notas diarias | `"journal"` |
-| `OBSIDIAN_DAILY_TEMPLATE` | Nombre del archivo de plantilla diaria | `"plantilla-diaria.md"` |
-| `OBSIDIAN_TEMPLATES_FOLDER` | Subcarpeta de plantillas generales | `"templates"` |
-| `OBSIDIAN_ATTACHMENTS_FOLDER`| Subcarpeta para imágenes y adjuntos | `"assets"` |
-| `NOTES_JOURNAL_DIR` | Override para la ruta absoluta del diario | `$VAULT/$OBSIDIAN_DAILY_FOLDER` |
-| `NOTES_DAILY_TEMPLATE_PATH` | Override para la ruta absoluta de la plantilla | `$VAULT/$TEMPLATES/$TEMPLATE` |
+| Variable                      | Descripción                                    | Valor por defecto               |
+|-------------------------------|------------------------------------------------|---------------------------------|
+| `NOTAS_VAULT`                 | Ruta absoluta de tu bóveda de notas            | `~/Notas`                       |
+| `OBSIDIAN_VAULT_PATH`         | Ruta alternativa para la bóveda de notas       | `~/Notas`                       |
+| `OBSIDIAN_DEFAULT_WORKSPACE`  | Nombre del workspace principal                 | `"Notas"`                       |
+| `OBSIDIAN_NOTES_SUBDIR`       | Subcarpeta de notas Zettelkasten               | `"zettelkasten"`                |
+| `OBSIDIAN_PROJECTS_FOLDER`    | Subcarpeta de proyectos                        | `"projects"`                    |
+| `OBSIDIAN_DAILY_FOLDER`       | Subcarpeta para el diario / notas diarias      | `"journal"`                     |
+| `OBSIDIAN_DAILY_TEMPLATE`     | Nombre del archivo de plantilla diaria         | `"plantilla-diaria.md"`         |
+| `OBSIDIAN_TEMPLATES_FOLDER`   | Subcarpeta de plantillas generales             | `"templates"`                   |
+| `OBSIDIAN_ATTACHMENTS_FOLDER` | Subcarpeta para imágenes y adjuntos            | `"assets"`                      |
+| `NOTES_JOURNAL_DIR`           | Override para la ruta absoluta del diario      | `$VAULT/$OBSIDIAN_DAILY_FOLDER` |
+| `NOTES_DAILY_TEMPLATE_PATH`   | Override para la ruta absoluta de la plantilla | `$VAULT/$TEMPLATES/$TEMPLATE`   |
 
 ---
 
